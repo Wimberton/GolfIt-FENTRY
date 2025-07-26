@@ -12,7 +12,7 @@
 #include <condition_variable>
 #include <atomic>
 
-// #define DISABLE_LOGGING_CONSOLE
+#define DISABLE_LOGGING_CONSOLE
 
 #ifndef DISABLE_LOGGING_CONSOLE
 #define LOG(...) Console::Log(__VA_ARGS__)

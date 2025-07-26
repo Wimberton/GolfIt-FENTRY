@@ -255,7 +255,7 @@ namespace PlayerFeatures {
         if (Configuration::cfg_TeleportToGoalKey != 0 && !(GetAsyncKeyState(Configuration::cfg_TeleportToGoalKey) & 0x8000))
             return;
 
-        // Get local golf ball and verify it's valid
+        // Get local golf ball and verify it's valid (for position reference)
         AGolfBall_C* LocalGolfBall = GetGolfBallC();
         if (!LocalGolfBall || !IsActorValid(LocalGolfBall))
             return;
@@ -294,16 +294,372 @@ namespace PlayerFeatures {
         FVector GoalLocation = ClosestGoal->K2_GetActorLocation();
         GoalLocation.Z += 200.0f; // Offset above the goal to drop in
 
-        FHitResult HitResult;
-        LocalGolfBall->K2_SetActorLocation(GoalLocation, false, &HitResult, false);
+        if (Configuration::cfg_TeleportAllPlayers) {
+            // CHAOS MODE: Teleport ALL golf balls to the goal! 😂
+            auto cachedGolfBalls = ActorCache::GetInstance().GetCachedGolfBalls();
+            
+            // Add some random offset so players don't stack exactly on each other
+            int playerCount = 0;
+            
+            for (const auto& ballInfo : cachedGolfBalls) {
+                if (!ballInfo.Actor || !IsActorValid(ballInfo.Actor))
+                    continue;
+                    
+                AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(ballInfo.Actor);
+                if (!GolfBall || !IsActorValid(GolfBall))
+                    continue;
+
+                // Create a slight offset for each player so they don't stack
+                FVector PlayerGoalLocation = GoalLocation;
+                PlayerGoalLocation.X += (playerCount % 3 - 1) * 100.0f; // -100, 0, 100
+                PlayerGoalLocation.Y += (playerCount / 3 - 1) * 100.0f; // Grid pattern
+                
+                FHitResult HitResult;
+                GolfBall->K2_SetActorLocation(PlayerGoalLocation, false, &HitResult, false);
+                
+                // Reset physics for this golf ball
+                UStaticMeshComponent* GolfBallMesh = GolfBall->GolfBall;
+                if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+                    GolfBallMesh->SetSimulatePhysics(true);
+                    // Give it a small downward velocity to ensure it drops
+                    FVector downwardVelocity = {0.0f, 0.0f, -100.0f};
+                    GolfBallMesh->SetPhysicsLinearVelocity(downwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+                }
+                
+                playerCount++;
+            }
+            
+            // Also teleport the local player
+            FHitResult LocalHitResult;
+            LocalGolfBall->K2_SetActorLocation(GoalLocation, false, &LocalHitResult, false);
+            
+            UStaticMeshComponent* LocalGolfBallMesh = LocalGolfBall->GolfBall;
+            if (LocalGolfBallMesh && IsComponentValid(LocalGolfBallMesh)) {
+                LocalGolfBallMesh->SetSimulatePhysics(true);
+                FVector localDownwardVelocity = {0.0f, 0.0f, -100.0f};
+                LocalGolfBallMesh->SetPhysicsLinearVelocity(localDownwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+            }
+        }
+        else {
+            // Normal mode: Only teleport local player
+            FHitResult HitResult;
+            LocalGolfBall->K2_SetActorLocation(GoalLocation, false, &HitResult, false);
+            
+            // Optional: Reset physics to make the ball drop naturally
+            UStaticMeshComponent* GolfBallMesh = LocalGolfBall->GolfBall;
+            if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+                GolfBallMesh->SetSimulatePhysics(true);
+                // Give it a small downward velocity to ensure it drops
+                FVector normalDownwardVelocity = {0.0f, 0.0f, -100.0f};
+                GolfBallMesh->SetPhysicsLinearVelocity(normalDownwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+            }
+        }
+    }
+
+    void Func_UnifiedTeleport(TfdOverlay* Overlay) {
+        // Check if teleport feature is enabled and overlay is valid
+        if (!Configuration::cfg_EnableTPTarget || !Overlay)
+            return;
+            
+        // Get World instance and verify it's valid
+        UWorld* GWorld = GetWorld();
+        if (!GWorld)
+            return;
+            
+        // Get local golf ball and verify it's valid
+        AGolfBall_C* LocalGolfBall = GetGolfBallC();
+        if (!LocalGolfBall || !IsActorValid(LocalGolfBall))
+            return;
+            
+        // Get player controller and verify it's valid
+        APlayerController* PlayerController = GetAPC();
+        if (!PlayerController || !IsActorValid(PlayerController))
+            return;
         
-        // Optional: Reset physics to make the ball drop naturally
+        // Check if teleport key is pressed
+        if (!(GetAsyncKeyState(Configuration::cfg_TPTargetKey) & 0x8000))
+            return;
+        
+        // First, try to use the aimbot target if available
+        if (Overlay->BestTargetActor && IsActorValid(Overlay->BestTargetActor)) {
+            LOG_DEBUG("UNIFIED_TELEPORT: Found target actor, checking TP conditions...");
+            
+            bool canTeleportToTarget = true;
+            
+            // If smaller TP targeting is enabled, check if target is within the smaller FOV radius
+            if (Configuration::cfg_SmallerTPTargeting) {
+                // Project target to screen and check if it's within the smaller TP radius
+                FVector2D TargetScreenPosition;
+                if (PlayerController->ProjectWorldLocationToScreen(Overlay->BestTargetLocation, &TargetScreenPosition, true)) {
+                    // Calculate screen center
+                    ImVec2 ScreenSize = ImGui::GetIO().DisplaySize;
+                    FVector2D ScreenCenter = { ScreenSize.x * 0.5f, ScreenSize.y * 0.5f };
+                    
+                    // Calculate distance from center
+                    float DistanceFromCenter = CustomMath::Sqrt(
+                        CustomMath::Square(TargetScreenPosition.X - ScreenCenter.X) +
+                        CustomMath::Square(TargetScreenPosition.Y - ScreenCenter.Y)
+                    );
+                    
+                    // Check if target is within the smaller TP FOV radius
+                    float TPRadius = Configuration::cfg_TPFOVRadius;
+                    if (DistanceFromCenter > TPRadius) {
+                        canTeleportToTarget = false;
+                        LOG_DEBUG("UNIFIED_TELEPORT: Target outside TP FOV radius (%.1f > %.1f)", DistanceFromCenter, TPRadius);
+                    } else {
+                        LOG_DEBUG("UNIFIED_TELEPORT: Target within TP FOV radius (%.1f <= %.1f)", DistanceFromCenter, TPRadius);
+                    }
+                } else {
+                    // If we can't project to screen, don't teleport
+                    canTeleportToTarget = false;
+                    LOG_DEBUG("UNIFIED_TELEPORT: Cannot project target to screen");
+                }
+            }
+            
+            if (canTeleportToTarget) {
+                // Get target location from the best target location instead of actor location
+                FVector TargetLocation = Overlay->BestTargetLocation;
+                
+                // Better offset calculation: offset based on target type
+                if (Configuration::cfg_ActorTeleportOffset > 0) {
+                    // For goal flags, teleport slightly above and in front
+                    if (Overlay->BestTargetActor->IsA(AGoalNumberRotation_C::StaticClass())) {
+                        TargetLocation.Z += 100.0f; // Above the goal
+                        TargetLocation.X += Configuration::cfg_ActorTeleportOffset * 0.5f; // Slightly in front
+                    }
+                    // For golf balls, teleport to the side with specified offset
+                    else if (Overlay->BestTargetActor->IsA(AGolfBall_C::StaticClass())) {
+                        FVector LocalLocation = LocalGolfBall->K2_GetActorLocation();
+                        FVector DirectionToTarget = (TargetLocation - LocalLocation).GetNormalized();
+                        FVector SideOffset = FVector(-DirectionToTarget.Y, DirectionToTarget.X, 0.0f) * Configuration::cfg_ActorTeleportOffset;
+                        TargetLocation = TargetLocation + SideOffset;
+                        TargetLocation.Z += 50.0f; // Slightly above to avoid collision
+                    }
+                }
+                
+                LOG_DEBUG("UNIFIED_TELEPORT: Teleporting to target at (%.1f, %.1f, %.1f)", 
+                          TargetLocation.X, TargetLocation.Y, TargetLocation.Z);
+                
+                // Teleport golf ball to target location
+                FHitResult HitResult;
+                LocalGolfBall->K2_SetActorLocation(TargetLocation, false, &HitResult, false);
+                
+                // Reset physics after teleport
+                UStaticMeshComponent* GolfBallMesh = LocalGolfBall->GolfBall;
+                if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+                    GolfBallMesh->SetSimulatePhysics(true);
+                }
+                
+                return; // Exit early since we teleported to target
+            }
+        }
+        // If no target, teleport in the direction player is looking
+        LOG_DEBUG("UNIFIED_TELEPORT: No valid target found, teleporting forward");
+        
+        FVector LocalGolfBallLocation = LocalGolfBall->K2_GetActorLocation();
+        
+        // Check if PlayerCameraManager is valid
+        if (!PlayerController->PlayerCameraManager || !IsActorValid(PlayerController->PlayerCameraManager))
+            return;
+            
+        FRotator CameraRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
+
+        FVector ForwardDirection = UKismetMathLibrary::GetForwardVector(CameraRotation);
+        ForwardDirection.Normalize();
+
+        float TeleportDistance = Configuration::cfg_TPNoTargetDistance;
+        FVector TeleportLocation = LocalGolfBallLocation + (ForwardDirection * TeleportDistance);
+
+        LOG_DEBUG("UNIFIED_TELEPORT: Teleporting forward %.1f units to (%.1f, %.1f, %.1f)", 
+                  TeleportDistance, TeleportLocation.X, TeleportLocation.Y, TeleportLocation.Z);
+
+        // Teleport golf ball forward
+        FHitResult HitResult;
+        LocalGolfBall->K2_SetActorLocation(TeleportLocation, false, &HitResult, false);
+        
+        // Reset physics after teleport
         UStaticMeshComponent* GolfBallMesh = LocalGolfBall->GolfBall;
         if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
             GolfBallMesh->SetSimulatePhysics(true);
-            // Give it a small downward velocity to ensure it drops
-            // SetPhysicsLinearVelocity(NewVel, bAddToCurrent, BoneName)
-            GolfBallMesh->SetPhysicsLinearVelocity(FVector(0.0f, 0.0f, -100.0f), false, UKismetStringLibrary::Conv_StringToName(L"None"));
         }
+    }
+
+    // ======== PLAYER CONTROL FUNCTIONS ======== //
+    
+    void TeleportPlayerToGoal(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Get the goal flag from ActorCache (find closest goal to target player)
+        auto cachedGoalFlags = ActorCache::GetInstance().GetCachedGoalFlags();
+        if (cachedGoalFlags.empty())
+            return;
+
+        // Find the closest goal flag to the target player
+        FVector targetPlayerLocation = targetPlayer->K2_GetActorLocation();
+        AGoalNumberRotation_C* ClosestGoal = nullptr;
+        float ClosestDistance = FLT_MAX;
+
+        for (const auto& goalInfo : cachedGoalFlags) {
+            if (!goalInfo.Actor || !IsActorValid(goalInfo.Actor))
+                continue;
+
+            AGoalNumberRotation_C* Goal = static_cast<AGoalNumberRotation_C*>(goalInfo.Actor);
+            if (!Goal || !IsActorValid(Goal))
+                continue;
+
+            FVector GoalLocation = Goal->K2_GetActorLocation();
+            float Distance = GetDistance3D(targetPlayerLocation, GoalLocation);
+            
+            if (Distance < ClosestDistance) {
+                ClosestDistance = Distance;
+                ClosestGoal = Goal;
+            }
+        }
+
+        if (!ClosestGoal)
+            return;
+
+        // Teleport target player to goal flag location (offset slightly above it)
+        FVector GoalLocation = ClosestGoal->K2_GetActorLocation();
+        GoalLocation.Z += 200.0f; // Offset above the goal
+
+        FHitResult HitResult;
+        targetPlayer->K2_SetActorLocation(GoalLocation, false, &HitResult, false);
+
+        // Reset physics for the target player's golf ball
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(true);
+            FVector downwardVelocity = {0.0f, 0.0f, -100.0f};
+            GolfBallMesh->SetPhysicsLinearVelocity(downwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+        }
+    }
+
+    void TeleportPlayerToMe(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Get local golf ball location
+        AGolfBall_C* LocalGolfBall = GetGolfBallC();
+        if (!LocalGolfBall || !IsActorValid(LocalGolfBall))
+            return;
+
+        FVector LocalLocation = LocalGolfBall->K2_GetActorLocation();
+        LocalLocation.X += 100.0f; // Offset slightly so players don't stack
+        LocalLocation.Z += 50.0f;  // Slightly above to avoid collision
+
+        FHitResult HitResult;
+        targetPlayer->K2_SetActorLocation(LocalLocation, false, &HitResult, false);
+
+        // Reset physics
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(true);
+        }
+    }
+
+    void TeleportMeToPlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Get local golf ball
+        AGolfBall_C* LocalGolfBall = GetGolfBallC();
+        if (!LocalGolfBall || !IsActorValid(LocalGolfBall))
+            return;
+
+        FVector TargetLocation = targetPlayer->K2_GetActorLocation();
+        TargetLocation.X += 100.0f; // Offset slightly so balls don't stack
+        TargetLocation.Z += 50.0f;  // Slightly above to avoid collision
+
+        FHitResult HitResult;
+        LocalGolfBall->K2_SetActorLocation(TargetLocation, false, &HitResult, false);
+
+        // Reset physics
+        UStaticMeshComponent* LocalGolfBallMesh = LocalGolfBall->GolfBall;
+        if (LocalGolfBallMesh && IsComponentValid(LocalGolfBallMesh)) {
+            LocalGolfBallMesh->SetSimulatePhysics(true);
+        }
+    }
+
+    void FreezePlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Disable physics simulation to freeze the golf ball
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(false);
+            
+            // Also set velocity to zero
+            FVector zeroVelocity = {0.0f, 0.0f, 0.0f};
+            GolfBallMesh->SetPhysicsLinearVelocity(zeroVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+            GolfBallMesh->SetPhysicsAngularVelocityInDegrees(zeroVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+        }
+    }
+
+    void UnfreezePlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Re-enable physics simulation to unfreeze the golf ball
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(true);
+        }
+    }
+
+    void LaunchPlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Launch the golf ball into the air with upward velocity
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(true);
+            
+            // Apply strong upward force
+            FVector launchVelocity = {0.0f, 0.0f, 1500.0f}; // Strong upward velocity
+            GolfBallMesh->SetPhysicsLinearVelocity(launchVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+        }
+    }
+
+    void SpeedUpPlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Increase time dilation for faster movement
+        targetPlayer->CustomTimeDilation = 3.0f; // 3x speed
+    }
+
+    void SlowDownPlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Decrease time dilation for slower movement
+        targetPlayer->CustomTimeDilation = 0.5f; // Half speed
+    }
+
+    void ResetPlayer(AGolfBall_C* targetPlayer) {
+        if (!targetPlayer || !IsActorValid(targetPlayer))
+            return;
+
+        // Reset all modifications to normal state
+        targetPlayer->CustomTimeDilation = 1.0f; // Normal speed
+
+        // Re-enable physics if disabled
+        UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
+        if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
+            GolfBallMesh->SetSimulatePhysics(true);
+            
+            // Reset velocities
+            FVector zeroVelocity = {0.0f, 0.0f, 0.0f};
+            GolfBallMesh->SetPhysicsLinearVelocity(zeroVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+            GolfBallMesh->SetPhysicsAngularVelocityInDegrees(zeroVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+        }
+
+        // Reset any other golf ball properties to defaults
+        targetPlayer->MultiJump = false;
+        targetPlayer->MultiJumpAmount = 1;
     }
 }

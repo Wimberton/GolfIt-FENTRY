@@ -45,19 +45,19 @@ void DetourManager::ProcessEventDetour(const UObject* Class, const UFunction* Fu
     invocations.insert(fn);
     
     // Debug: Log golf-related functions for teleport feature development
-    if (fn.find("Putter_BP") != std::string::npos) {
-        LOG_DEBUG("PUTTER_FUNCTION: %s", fn.c_str());
-    }
+    // if (fn.find("Putter_BP") != std::string::npos) {
+    //     LOG_DEBUG("PUTTER_FUNCTION: %s", fn.c_str());
+    // }
     
-    if (fn.find("GolfBall") != std::string::npos) {
-        LOG_DEBUG("GOLFBALL_FUNCTION: %s", fn.c_str());
-    }
+    // if (fn.find("GolfBall") != std::string::npos) {
+    //     LOG_DEBUG("GOLFBALL_FUNCTION: %s", fn.c_str());
+    // }
     
     // Log any hit/shoot related functions
-    if (fn.find("Hit") != std::string::npos || fn.find("Shoot") != std::string::npos || 
-        fn.find("Strike") != std::string::npos || fn.find("Impulse") != std::string::npos) {
-        LOG_DEBUG("HIT_SHOOT_FUNCTION: %s", fn.c_str());
-    }
+    // if (fn.find("Hit") != std::string::npos || fn.find("Shoot") != std::string::npos || 
+    //     fn.find("Strike") != std::string::npos || fn.find("Impulse") != std::string::npos) {
+    //     LOG_DEBUG("HIT_SHOOT_FUNCTION: %s", fn.c_str());
+    // }
 
     // Initialize console for debugging output on first call
      //static bool consoleInitialized = false;
@@ -121,9 +121,17 @@ void DetourManager::ProcessEventDetour(const UObject* Class, const UFunction* Fu
         if (Overlay) {
             // add mods
             PlayerFeatures::Func_DoNoClip();
-            PlayerFeatures::Func_DoSpeedmod();
+            // PlayerFeatures::Func_DoSpeedmod();
             PlayerFeatures::Func_DoMultiJump();
             PlayerFeatures::Func_DoTeleportToGoal();
+            PlayerFeatures::Func_UnlitMode();
+
+            // Targeting and aimbot features
+            AimFeatures::Func_DoTargeting(Overlay, static_cast<const AHUD*>(Class));
+            AimFeatures::Func_DoAimbot(Overlay, static_cast<const AHUD*>(Class));
+            
+            // Teleport features
+            PlayerFeatures::Func_UnifiedTeleport(Overlay);
 
         }
     }

@@ -89,7 +89,16 @@ public:
     
     // Teleport to Goal Settings
     static bool cfg_EnableTeleportToGoal;
+    static bool cfg_TeleportAllPlayers;
     static int cfg_TeleportToGoalKey;
+    
+    // Teleport to Target Settings
+    static bool cfg_EnableTPTarget;
+    static bool cfg_SmallerTPTargeting;
+    static float cfg_TPFOVRadius;
+    static float cfg_ActorTeleportOffset;
+    static float cfg_TPNoTargetDistance;
+    static int cfg_TPTargetKey;
 
     // Console Settings
     static bool cfg_EnableConsole;

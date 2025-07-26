@@ -36,9 +36,16 @@ void ESP::DrawGuiFOVCircle() {
     const ImU32 CircleColor = IM_COL32(0xFF, 0xFF, 0xFF, static_cast<int>(Configuration::cfg_CircleAlpha * 255));
     const float FOVRadius = Configuration::cfg_FOVRadius;
 
-    // Draw FOV circle only if enabled
+    // Draw main FOV circle only if enabled - keep the original white color
     if (Configuration::cfg_DrawFOVCircle) {
         drawList->AddCircle(ImVec2(FOVCenter.X, FOVCenter.Y), FOVRadius, CircleColor, 1200, 1.0f);
+    }
+
+    // Draw smaller TP targeting circle if enabled
+    if (Configuration::cfg_SmallerTPTargeting && Configuration::cfg_DrawFOVCircle) {
+        const float TPRadius = Configuration::cfg_TPFOVRadius;
+        const ImU32 TPCircleColor = IM_COL32(0xB8, 0x86, 0xFC, static_cast<int>(Configuration::cfg_CircleAlpha * 255)); // Light purple
+        drawList->AddCircle(ImVec2(FOVCenter.X, FOVCenter.Y), TPRadius, TPCircleColor, 800, 1.0f);
     }
 
     // Draw line to best target - always show this regardless of FOV circle visibility
@@ -51,14 +58,193 @@ void ESP::DrawGuiFOVCircle() {
             );
 
             if (DistanceToCenter <= FOVRadius) {
-                // Use a simple golf ball target color
-                ImU32 TargetColor = IM_COL32(0, 255, 0, 255); // Green for targeted golf ball
+                // Determine target color based on target type
+                ImU32 TargetColor = IM_COL32(0, 255, 0, 255); // Default green
+                
+                // Check if target is a golf ball
+                if (Overlay->BestTargetActor->IsA(AGolfBall_C::StaticClass())) {
+                    TargetColor = Configuration::cfg_GolfBallESPColorTarget; // Green for targeted golf ball
+                }
+                // Check if target is a goal flag
+                else if (Overlay->BestTargetActor->IsA(AGoalNumberRotation_C::StaticClass())) {
+                    TargetColor = Configuration::cfg_GoalFlagESPColor; // Yellow for goal flags
+                }
 
                 drawList->AddLine(
                     ImVec2(FOVCenter.X, FOVCenter.Y),
                     ImVec2(TargetScreenPosition.X, TargetScreenPosition.Y),
                     TargetColor, Configuration::cfg_ESPThickness
                 );
+            }
+        }
+    }
+
+    // Draw arrows to offscreen targets if FOV arrows are enabled
+    if (Configuration::cfg_DrawFOVCircle) { // Only show arrows when FOV circle is visible
+        const float AngularOffset = 0.20f;
+        float CurrentAngleOffset = 0.0f;
+
+        // Process Golf Ball arrows
+        if (Configuration::cfg_DrawGolfBallESP) {
+            auto cachedGolfBalls = ActorCache::GetInstance().GetCachedGolfBalls();
+            
+            for (const auto& actorInfo : cachedGolfBalls) {
+                if (!actorInfo.Actor || !IsActorValid(actorInfo.Actor))
+                    continue;
+                    
+                AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(actorInfo.Actor);
+                if (!GolfBall || !IsActorValid(GolfBall))
+                    continue;
+
+                // Skip our own golf ball
+                auto LocalGolfBall = GetGolfBallC();
+                if (GolfBall == LocalGolfBall || GolfBall == PlayerController->K2_GetPawn())
+                    continue;
+
+                // Get world position and project to screen
+                FVector GolfBallLocation = GolfBall->K2_GetActorLocation();
+                FVector2D GolfBallScreenPosition;
+
+                if (!PlayerController->ProjectWorldLocationToScreen(GolfBallLocation, &GolfBallScreenPosition, false))
+                    continue;
+
+                // Calculate direction from center to golf ball
+                float DirX = GolfBallScreenPosition.X - FOVCenter.X;
+                float DirY = GolfBallScreenPosition.Y - FOVCenter.Y;
+                float DistanceToCenter = CustomMath::Sqrt(DirX * DirX + DirY * DirY);
+
+                // Only draw arrows for offscreen golf balls
+                if (DistanceToCenter <= FOVRadius)
+                    continue;
+
+                // Normalize direction
+                float NormDirX = DirX;
+                float NormDirY = DirY;
+                if (DistanceToCenter != 0.0f) {
+                    NormDirX /= DistanceToCenter;
+                    NormDirY /= DistanceToCenter;
+                }
+
+                float BaseAngle = atan2(NormDirY, NormDirX);
+                BaseAngle += CurrentAngleOffset;
+                CurrentAngleOffset += AngularOffset;
+
+                // Calculate adjusted direction
+                float AdjDirX = cos(BaseAngle);
+                float AdjDirY = sin(BaseAngle);
+
+                const float Offset = 20.0f;
+                ImVec2 ArrowPosition = {
+                    FOVCenter.X + AdjDirX * (FOVRadius + Offset),
+                    FOVCenter.Y + AdjDirY * (FOVRadius + Offset)
+                };
+
+                // Determine arrow color
+                ImU32 ArrowColor = (GolfBall == Overlay->BestTargetActor) 
+                    ? Configuration::cfg_GolfBallESPColorTarget 
+                    : Configuration::cfg_GolfBallESPColor;
+
+                const float ArrowSize = 15.0f;
+                ImVec2 ArrowPoint1 = {
+                    ArrowPosition.x + cos(BaseAngle) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle) * ArrowSize
+                };
+                ImVec2 ArrowPoint2 = {
+                    ArrowPosition.x + cos(BaseAngle + 2.0944f) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle + 2.0944f) * ArrowSize
+                };
+                ImVec2 ArrowPoint3 = {
+                    ArrowPosition.x + cos(BaseAngle - 2.0944f) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle - 2.0944f) * ArrowSize
+                };
+
+                drawList->AddTriangleFilled(ArrowPoint1, ArrowPoint2, ArrowPoint3, ArrowColor);
+            }
+        }
+
+        // Process Goal Flag arrows
+        if (Configuration::cfg_DrawGoalFlagESP) {
+            auto cachedGoalFlags = ActorCache::GetInstance().GetCachedGoalFlags();
+            
+            for (const auto& actorInfo : cachedGoalFlags) {
+                if (!actorInfo.Actor || !IsActorValid(actorInfo.Actor))
+                    continue;
+                    
+                AGoalNumberRotation_C* GoalFlag = static_cast<AGoalNumberRotation_C*>(actorInfo.Actor);
+                if (!GoalFlag || !IsActorValid(GoalFlag))
+                    continue;
+
+                // Get world position and project to screen
+                FVector GoalFlagLocation = GoalFlag->K2_GetActorLocation();
+                FVector2D GoalFlagScreenPosition;
+
+                if (!PlayerController->ProjectWorldLocationToScreen(GoalFlagLocation, &GoalFlagScreenPosition, false))
+                    continue;
+
+                // Calculate direction from center to goal flag
+                float DirX = GoalFlagScreenPosition.X - FOVCenter.X;
+                float DirY = GoalFlagScreenPosition.Y - FOVCenter.Y;
+                float DistanceToCenter = CustomMath::Sqrt(DirX * DirX + DirY * DirY);
+
+                // Only draw arrows for offscreen goal flags
+                if (DistanceToCenter <= FOVRadius)
+                    continue;
+
+                // Normalize direction
+                float NormDirX = DirX;
+                float NormDirY = DirY;
+                if (DistanceToCenter != 0.0f) {
+                    NormDirX /= DistanceToCenter;
+                    NormDirY /= DistanceToCenter;
+                }
+
+                float BaseAngle = atan2(NormDirY, NormDirX);
+                BaseAngle += CurrentAngleOffset;
+                CurrentAngleOffset += AngularOffset;
+
+                // Calculate adjusted direction
+                float AdjDirX = cos(BaseAngle);
+                float AdjDirY = sin(BaseAngle);
+
+                const float Offset = 20.0f;
+                ImVec2 ArrowPosition = {
+                    FOVCenter.X + AdjDirX * (FOVRadius + Offset),
+                    FOVCenter.Y + AdjDirY * (FOVRadius + Offset)
+                };
+
+                // Use goal flag color for arrows
+                ImU32 ArrowColor = Configuration::cfg_GoalFlagESPColor;
+                
+                // Brighten if it's the current target
+                if (GoalFlag == Overlay->BestTargetActor) {
+                    // Extract components and brighten
+                    unsigned char r = (ArrowColor >> IM_COL32_R_SHIFT) & 0xFF;
+                    unsigned char g = (ArrowColor >> IM_COL32_G_SHIFT) & 0xFF;
+                    unsigned char b = (ArrowColor >> IM_COL32_B_SHIFT) & 0xFF;
+                    unsigned char a = (ArrowColor >> IM_COL32_A_SHIFT) & 0xFF;
+                    
+                    r = static_cast<unsigned char>(r * 1.5f > 255 ? 255 : r * 1.5f);
+                    g = static_cast<unsigned char>(g * 1.5f > 255 ? 255 : g * 1.5f);
+                    b = static_cast<unsigned char>(b * 1.5f > 255 ? 255 : b * 1.5f);
+                    
+                    ArrowColor = IM_COL32(r, g, b, a);
+                }
+
+                const float ArrowSize = 15.0f;
+                ImVec2 ArrowPoint1 = {
+                    ArrowPosition.x + cos(BaseAngle) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle) * ArrowSize
+                };
+                ImVec2 ArrowPoint2 = {
+                    ArrowPosition.x + cos(BaseAngle + 2.0944f) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle + 2.0944f) * ArrowSize
+                };
+                ImVec2 ArrowPoint3 = {
+                    ArrowPosition.x + cos(BaseAngle - 2.0944f) * ArrowSize,
+                    ArrowPosition.y + sin(BaseAngle - 2.0944f) * ArrowSize
+                };
+
+                drawList->AddTriangleFilled(ArrowPoint1, ArrowPoint2, ArrowPoint3, ArrowColor);
             }
         }
     }

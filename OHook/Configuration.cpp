@@ -79,7 +79,16 @@ int Configuration::cfg_MultiJumpAmount = 5;
 
 // Teleport to Goal Settings
 bool Configuration::cfg_EnableTeleportToGoal = false;
+bool Configuration::cfg_TeleportAllPlayers = false;
 int Configuration::cfg_TeleportToGoalKey = VK_F2;
+
+// Teleport to Target Settings
+bool Configuration::cfg_EnableTPTarget = false;
+bool Configuration::cfg_SmallerTPTargeting = false;
+float Configuration::cfg_TPFOVRadius = 150.0f;
+float Configuration::cfg_ActorTeleportOffset = 300.0f;
+float Configuration::cfg_TPNoTargetDistance = 1000.0f;
+int Configuration::cfg_TPTargetKey = VK_F3;
 
 // Console settings
 bool Configuration::cfg_EnableConsole = false;
@@ -205,7 +214,16 @@ void Configuration::Load(TfdOverlay* Overlay) {
     
     // Teleport to Goal settings
     ParseBool("Enable Teleport to Goal", cfg_EnableTeleportToGoal);
+    ParseBool("Teleport All Players", cfg_TeleportAllPlayers);
     ParseNumber("Teleport to Goal Key", cfg_TeleportToGoalKey);
+    
+    // Teleport to Target settings
+    ParseBool("Enable Teleport to Target", cfg_EnableTPTarget);
+    ParseBool("Smaller TP Targeting", cfg_SmallerTPTargeting);
+    ParseNumber("TP FOV Radius", cfg_TPFOVRadius);
+    ParseNumber("Actor Teleport Offset", cfg_ActorTeleportOffset);
+    ParseNumber("TP No Target Distance", cfg_TPNoTargetDistance);
+    ParseNumber("TP Target Key", cfg_TPTargetKey);
 
     // Console settings
     ParseBool("Enable Console", cfg_EnableConsole);
@@ -277,7 +295,16 @@ void Configuration::Save() {
         
         // Teleport to Goal settings
         configFile << "    \"Enable Teleport to Goal\": " << (cfg_EnableTeleportToGoal ? "true" : "false") << ",\n";
+        configFile << "    \"Teleport All Players\": " << (cfg_TeleportAllPlayers ? "true" : "false") << ",\n";
         configFile << "    \"Teleport to Goal Key\": " << cfg_TeleportToGoalKey << ",\n";
+        
+        // Teleport to Target settings
+        configFile << "    \"Enable Teleport to Target\": " << (cfg_EnableTPTarget ? "true" : "false") << ",\n";
+        configFile << "    \"Smaller TP Targeting\": " << (cfg_SmallerTPTargeting ? "true" : "false") << ",\n";
+        configFile << "    \"TP FOV Radius\": " << cfg_TPFOVRadius << ",\n";
+        configFile << "    \"Actor Teleport Offset\": " << cfg_ActorTeleportOffset << ",\n";
+        configFile << "    \"TP No Target Distance\": " << cfg_TPNoTargetDistance << ",\n";
+        configFile << "    \"TP Target Key\": " << cfg_TPTargetKey << ",\n";
 
         // Console settings
         configFile << "    \"Enable Console\": " << (cfg_EnableConsole ? "true" : "false") << ",\n";

@@ -36,49 +36,99 @@ namespace AimFeatures {
         AActor* CurrentBestTarget = nullptr;
         FVector BestTargetLocation;
 
-        // Get golf balls from actor cache
-        const auto& cachedGolfBalls = ActorCache::GetInstance().GetCachedGolfBalls();
-
-        // Loop over all cached golf balls
-        for (const auto& actorInfo : cachedGolfBalls)
-        {
-            if (!actorInfo.Actor || !IsActorValid(actorInfo.Actor))
-                continue;
-
-            AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(actorInfo.Actor);
-            if (!GolfBall || !IsActorValid(GolfBall))
-                continue;
-
-            // Skip our own golf ball
-            if (GolfBall == LocalGolfBall)
-                continue;
-
-            FVector GolfBallLocation = GolfBall->K2_GetActorLocation();
+        // Target Golf Balls if ESP is enabled
+        if (Configuration::cfg_DrawGolfBallESP) {
+            const auto& cachedGolfBalls = ActorCache::GetInstance().GetCachedGolfBalls();
             
-            // Calculate distance
-            float Distance = GetDistance3D(GolfBallLocation, LocalGolfBallLocation) / 100.0f; // Convert to meters
-            if (Distance > Configuration::cfg_MaxGolfBallESPDistance / 100.0f)
-                continue;
-
-            // Project to screen for FOV check
-            FVector2D TargetScreenPosition;
-            if (!PlayerController->ProjectWorldLocationToScreen(GolfBallLocation, &TargetScreenPosition, true))
-                continue;
-
-            float ScreenDistance = CustomMath::Sqrt(
-                CustomMath::Square(TargetScreenPosition.X - ScreenCenter.X) +
-                CustomMath::Square(TargetScreenPosition.Y - ScreenCenter.Y)
-            );
-
-            // Simple scoring based on screen distance and 3D distance
-            double Score = ScreenDistance + (Distance * 10.0f);
-
-            if (Score < BestScore)
+            for (const auto& actorInfo : cachedGolfBalls)
             {
-                BestScore = Score;
-                CurrentBestTarget = GolfBall;
-                BestTargetLocation = GolfBallLocation;
-                HasValidTarget = true;
+                if (!actorInfo.Actor || !IsActorValid(actorInfo.Actor))
+                    continue;
+
+                AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(actorInfo.Actor);
+                if (!GolfBall || !IsActorValid(GolfBall))
+                    continue;
+
+                // Skip our own golf ball
+                if (GolfBall == LocalGolfBall)
+                    continue;
+
+                FVector GolfBallLocation = GolfBall->K2_GetActorLocation();
+                
+                // Calculate distance
+                float Distance = GetDistance3D(GolfBallLocation, LocalGolfBallLocation) / 100.0f; // Convert to meters
+                if (Distance > Configuration::cfg_MaxGolfBallESPDistance / 100.0f)
+                    continue;
+
+                // Project to screen for FOV check
+                FVector2D TargetScreenPosition;
+                if (!PlayerController->ProjectWorldLocationToScreen(GolfBallLocation, &TargetScreenPosition, true))
+                    continue;
+
+                float ScreenDistance = CustomMath::Sqrt(
+                    CustomMath::Square(TargetScreenPosition.X - ScreenCenter.X) +
+                    CustomMath::Square(TargetScreenPosition.Y - ScreenCenter.Y)
+                );
+
+                // Simple scoring based on screen distance and 3D distance
+                double Score = ScreenDistance + (Distance * 10.0f);
+
+                if (Score < BestScore)
+                {
+                    BestScore = Score;
+                    CurrentBestTarget = GolfBall;
+                    BestTargetLocation = GolfBallLocation;
+                    HasValidTarget = true;
+                }
+            }
+        }
+        
+        // Target Goal Flags if ESP is enabled
+        if (Configuration::cfg_DrawGoalFlagESP) {
+            const auto& cachedGoalFlags = ActorCache::GetInstance().GetCachedGoalFlags();
+            
+            static int goalTargetingLogCounter = 0;
+            goalTargetingLogCounter++;
+            if (goalTargetingLogCounter % 300 == 0) { // Log every 300 frames (5 seconds at 60fps)
+                LOG_DEBUG("TARGETING: Goal Flag ESP enabled, found %d cached goal flags", (int)cachedGoalFlags.size());
+            }
+            
+            for (const auto& actorInfo : cachedGoalFlags)
+            {
+                if (!actorInfo.Actor || !IsActorValid(actorInfo.Actor))
+                    continue;
+
+                AGoalNumberRotation_C* GoalFlag = static_cast<AGoalNumberRotation_C*>(actorInfo.Actor);
+                if (!GoalFlag || !IsActorValid(GoalFlag))
+                    continue;
+
+                FVector GoalFlagLocation = GoalFlag->K2_GetActorLocation();
+                
+                // Calculate distance
+                float Distance = GetDistance3D(GoalFlagLocation, LocalGolfBallLocation) / 100.0f; // Convert to meters
+                if (Distance > Configuration::cfg_MaxGoalFlagESPDistance / 100.0f)
+                    continue;
+
+                // Project to screen for FOV check
+                FVector2D TargetScreenPosition;
+                if (!PlayerController->ProjectWorldLocationToScreen(GoalFlagLocation, &TargetScreenPosition, true))
+                    continue;
+
+                float ScreenDistance = CustomMath::Sqrt(
+                    CustomMath::Square(TargetScreenPosition.X - ScreenCenter.X) +
+                    CustomMath::Square(TargetScreenPosition.Y - ScreenCenter.Y)
+                );
+
+                // Give goal flags priority by reducing their score (makes them more likely to be targeted)
+                double Score = ScreenDistance + (Distance * 8.0f); // Lower multiplier = higher priority
+
+                if (Score < BestScore)
+                {
+                    BestScore = Score;
+                    CurrentBestTarget = GoalFlag;
+                    BestTargetLocation = GoalFlagLocation;
+                    HasValidTarget = true;
+                }
             }
         }
 
@@ -89,6 +139,16 @@ namespace AimFeatures {
             Overlay->BestScore = BestScore;
             Overlay->BestTargetLocation = BestTargetLocation;
             Overlay->BestTargetRotation = UKismetMathLibrary::FindLookAtRotation(LocalGolfBallLocation, BestTargetLocation);
+            
+            // Debug logging
+            std::string targetType = "Unknown";
+            if (CurrentBestTarget->IsA(AGolfBall_C::StaticClass())) {
+                targetType = "GolfBall";
+            } else if (CurrentBestTarget->IsA(AGoalNumberRotation_C::StaticClass())) {
+                targetType = "GoalFlag";
+            }
+            LOG_DEBUG("TARGETING: Found target %s at (%.1f, %.1f, %.1f), Score: %.2f", 
+                      targetType.c_str(), BestTargetLocation.X, BestTargetLocation.Y, BestTargetLocation.Z, BestScore);
         }
         else
         {
@@ -96,6 +156,7 @@ namespace AimFeatures {
             Overlay->BestScore = DBL_MAX;
             Overlay->BestTargetLocation = FVector{0.0f, 0.0f, 0.0f};
             Overlay->BestTargetRotation = FRotator{0.0f, 0.0f, 0.0f};
+            LOG_DEBUG("TARGETING: No valid target found");
         }
     }
     
@@ -132,8 +193,8 @@ namespace AimFeatures {
         bool bAimbotKeyHeld = (GetAsyncKeyState(Configuration::cfg_AimbotKey) & 0x8000) != 0;
         Overlay->AimbotInUse = bAimbotKeyHeld;
 
-        AGolfBall_C* TargetGolfBall = static_cast<AGolfBall_C*>(TargetActor);
-        if (TargetGolfBall && IsActorValid(TargetGolfBall)) {
+        // Handle targeting for any valid actor (golf balls, goal flags, etc.)
+        if (IsActorValid(TargetActor)) {
             if (!bAimbotKeyHeld)
                 return;
 
