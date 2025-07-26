@@ -298,21 +298,32 @@ namespace PlayerFeatures {
             // CHAOS MODE: Teleport ALL golf balls to the goal! 😂
             auto cachedGolfBalls = ActorCache::GetInstance().GetCachedGolfBalls();
             
+            LOG_DEBUG("TELEPORT_ALL: Starting chaos mode with %d cached golf balls", (int)cachedGolfBalls.size());
+            
             // Add some random offset so players don't stack exactly on each other
             int playerCount = 0;
+            int successfulTeleports = 0;
             
             for (const auto& ballInfo : cachedGolfBalls) {
-                if (!ballInfo.Actor || !IsActorValid(ballInfo.Actor))
+                if (!ballInfo.Actor || !IsActorValid(ballInfo.Actor)) {
+                    LOG_DEBUG("TELEPORT_ALL: Skipping invalid actor %d", playerCount);
                     continue;
+                }
                     
                 AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(ballInfo.Actor);
-                if (!GolfBall || !IsActorValid(GolfBall))
+                if (!GolfBall || !IsActorValid(GolfBall)) {
+                    LOG_DEBUG("TELEPORT_ALL: Skipping invalid golf ball %d", playerCount);
                     continue;
+                }
 
                 // Create a slight offset for each player so they don't stack
                 FVector PlayerGoalLocation = GoalLocation;
                 PlayerGoalLocation.X += (playerCount % 3 - 1) * 100.0f; // -100, 0, 100
                 PlayerGoalLocation.Y += (playerCount / 3 - 1) * 100.0f; // Grid pattern
+                
+                LOG_DEBUG("TELEPORT_ALL: Teleporting player %d (%s) to (%.1f, %.1f, %.1f)", 
+                          playerCount, ballInfo.DisplayName.c_str(), 
+                          PlayerGoalLocation.X, PlayerGoalLocation.Y, PlayerGoalLocation.Z);
                 
                 FHitResult HitResult;
                 GolfBall->K2_SetActorLocation(PlayerGoalLocation, false, &HitResult, false);
@@ -321,22 +332,34 @@ namespace PlayerFeatures {
                 UStaticMeshComponent* GolfBallMesh = GolfBall->GolfBall;
                 if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
                     GolfBallMesh->SetSimulatePhysics(true);
-                    // Give it a small downward velocity to ensure it drops
-                    FVector downwardVelocity = {0.0f, 0.0f, -100.0f};
+                    // Give it a small downward velocity to ensure it settles properly
+                    FVector downwardVelocity; 
+                    downwardVelocity.X = 0.0f;
+                    downwardVelocity.Y = 0.0f;
+                    downwardVelocity.Z = -50.0f;
                     GolfBallMesh->SetPhysicsLinearVelocity(downwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
+                    successfulTeleports++;
                 }
                 
                 playerCount++;
             }
             
-            // Also teleport the local player
+            LOG_DEBUG("TELEPORT_ALL: Successfully teleported %d out of %d players", successfulTeleports, playerCount);
+            
+            // Also teleport the local player with a slight offset
+            FVector LocalPlayerGoalLocation = GoalLocation;
+            LocalPlayerGoalLocation.X += 75.0f; // Offset so local player doesn't stack with others
+            
             FHitResult LocalHitResult;
-            LocalGolfBall->K2_SetActorLocation(GoalLocation, false, &LocalHitResult, false);
+            LocalGolfBall->K2_SetActorLocation(LocalPlayerGoalLocation, false, &LocalHitResult, false);
             
             UStaticMeshComponent* LocalGolfBallMesh = LocalGolfBall->GolfBall;
             if (LocalGolfBallMesh && IsComponentValid(LocalGolfBallMesh)) {
                 LocalGolfBallMesh->SetSimulatePhysics(true);
-                FVector localDownwardVelocity = {0.0f, 0.0f, -100.0f};
+                FVector localDownwardVelocity;
+                localDownwardVelocity.X = 0.0f;
+                localDownwardVelocity.Y = 0.0f;
+                localDownwardVelocity.Z = -50.0f;
                 LocalGolfBallMesh->SetPhysicsLinearVelocity(localDownwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
             }
         }
@@ -345,12 +368,15 @@ namespace PlayerFeatures {
             FHitResult HitResult;
             LocalGolfBall->K2_SetActorLocation(GoalLocation, false, &HitResult, false);
             
-            // Optional: Reset physics to make the ball drop naturally
+            // Reset physics to make the ball drop naturally
             UStaticMeshComponent* GolfBallMesh = LocalGolfBall->GolfBall;
             if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
                 GolfBallMesh->SetSimulatePhysics(true);
-                // Give it a small downward velocity to ensure it drops
-                FVector normalDownwardVelocity = {0.0f, 0.0f, -100.0f};
+                // Give it a small downward velocity to ensure it settles properly
+                FVector normalDownwardVelocity;
+                normalDownwardVelocity.X = 0.0f;
+                normalDownwardVelocity.Y = 0.0f;
+                normalDownwardVelocity.Z = -50.0f;
                 GolfBallMesh->SetPhysicsLinearVelocity(normalDownwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
             }
         }
@@ -422,10 +448,12 @@ namespace PlayerFeatures {
                 
                 // Better offset calculation: offset based on target type
                 if (Configuration::cfg_ActorTeleportOffset > 0) {
-                    // For goal flags, teleport slightly above and in front
+                    // For goal flags, teleport close to the goal with minimal offset
                     if (Overlay->BestTargetActor->IsA(AGoalNumberRotation_C::StaticClass())) {
-                        TargetLocation.Z += 100.0f; // Above the goal
-                        TargetLocation.X += Configuration::cfg_ActorTeleportOffset * 0.5f; // Slightly in front
+                        TargetLocation.Z += 25.0f; // Minimal offset above the goal
+                        // Small horizontal offset to avoid being exactly on the goal
+                        TargetLocation.X += 50.0f; 
+                        TargetLocation.Y += 25.0f;
                     }
                     // For golf balls, teleport to the side with specified offset
                     else if (Overlay->BestTargetActor->IsA(AGolfBall_C::StaticClass())) {
@@ -492,8 +520,42 @@ namespace PlayerFeatures {
 
         // Get the goal flag from ActorCache (find closest goal to target player)
         auto cachedGoalFlags = ActorCache::GetInstance().GetCachedGoalFlags();
-        if (cachedGoalFlags.empty())
+        if (cachedGoalFlags.empty()) {
+            LOG_DEBUG("TELEPORT_TO_GOAL: No goal flags found in cache");
             return;
+        }
+        
+        // Debug: Also check how many golf balls we can see in the world directly
+        UWorld* GWorld = GetWorld();
+        if (GWorld && GWorld->Levels.IsValid()) {
+            int totalGolfBalls = 0;
+            int validGolfBalls = 0;
+            
+            for (int i = 0; i < GWorld->Levels.Num(); ++i) {
+                if (!GWorld->Levels.IsValidIndex(i))
+                    continue;
+
+                const auto Level = GWorld->Levels[i];
+                if (!Level)
+                    continue;
+
+                for (int j = 0; j < Level->Actors.Num(); ++j) {
+                    const auto Actor = Level->Actors[j];
+                    if (!Actor || !IsActorValid(Actor))
+                        continue;
+
+                    if (Actor->IsA(AGolfBall_C::StaticClass())) {
+                        totalGolfBalls++;
+                        AGolfBall_C* GolfBall = static_cast<AGolfBall_C*>(Actor);
+                        if (GolfBall && IsActorValid(GolfBall)) {
+                            validGolfBalls++;
+                        }
+                    }
+                }
+            }
+            
+            LOG_DEBUG("TELEPORT_TO_GOAL: Found %d total golf balls in world, %d valid", totalGolfBalls, validGolfBalls);
+        }
 
         // Find the closest goal flag to the target player
         FVector targetPlayerLocation = targetPlayer->K2_GetActorLocation();
@@ -522,7 +584,7 @@ namespace PlayerFeatures {
 
         // Teleport target player to goal flag location (offset slightly above it)
         FVector GoalLocation = ClosestGoal->K2_GetActorLocation();
-        GoalLocation.Z += 200.0f; // Offset above the goal
+        GoalLocation.Z += 50.0f; // Small offset above the goal to avoid clipping
 
         FHitResult HitResult;
         targetPlayer->K2_SetActorLocation(GoalLocation, false, &HitResult, false);
@@ -531,7 +593,10 @@ namespace PlayerFeatures {
         UStaticMeshComponent* GolfBallMesh = targetPlayer->GolfBall;
         if (GolfBallMesh && IsComponentValid(GolfBallMesh)) {
             GolfBallMesh->SetSimulatePhysics(true);
-            FVector downwardVelocity = {0.0f, 0.0f, -100.0f};
+            FVector downwardVelocity;
+            downwardVelocity.X = 0.0f;
+            downwardVelocity.Y = 0.0f;
+            downwardVelocity.Z = -50.0f;
             GolfBallMesh->SetPhysicsLinearVelocity(downwardVelocity, false, UKismetStringLibrary::Conv_StringToName(L"None"));
         }
     }

@@ -59,7 +59,7 @@ void ESP::DrawGuiFOVCircle() {
 
             if (DistanceToCenter <= FOVRadius) {
                 // Determine target color based on target type
-                ImU32 TargetColor = IM_COL32(0, 255, 0, 255); // Default green
+                ImU32 TargetColor = IM_COL32(0xFF, 0xFF, 0xFF, static_cast<int>(Configuration::cfg_CircleAlpha * 255));
                 
                 // Check if target is a golf ball
                 if (Overlay->BestTargetActor->IsA(AGolfBall_C::StaticClass())) {

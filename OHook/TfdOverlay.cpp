@@ -514,13 +514,13 @@ void TfdOverlay::DrawOverlay() {
                     ImGui::SetTooltip("Smoothing factor for aimbot movement (higher = smoother)");
             }
 
-            if (ImGui::CollapsingHeader("Console##ConsoleHeader")) {
-                if (ImGui::Checkbox("Enable Console", &Configuration::cfg_EnableConsole)) {
-                    Configuration::Save();
-                }
-                if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Enable console access with hotkey");
-            }
+            // if (ImGui::CollapsingHeader("Console##ConsoleHeader")) {
+            //     if (ImGui::Checkbox("Enable Console", &Configuration::cfg_EnableConsole)) {
+            //         Configuration::Save();
+            //     }
+            //     if (ImGui::IsItemHovered())
+            //         ImGui::SetTooltip("Enable console access with hotkey");
+            // }
 
             ImGui::NextColumn();
 
