@@ -330,7 +330,6 @@ void TfdOverlay::DrawOverlay() {
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Thickness of ESP lines and boxes");
 
-                ImGui::Separator();
                 ImGui::Text("Golf Ball ESP Colors:");
 
                 float tempGolfBallColor[4];
@@ -410,7 +409,6 @@ void TfdOverlay::DrawOverlay() {
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Maximum distance to show goal flag ESP (in meters)");
 
-                ImGui::Separator();
                 ImGui::Text("Goal Flag ESP Color:");
 
                 float tempGoalFlagColor[4];
@@ -754,7 +752,6 @@ void TfdOverlay::DrawOverlay() {
                 
                 // Info about selected player
                 if (hasSelectedPlayer && selectedPlayerIndex < static_cast<int>(playerNames.size())) {
-                    ImGui::Separator();
                     ImGui::Text("Selected Player: %s", playerNames[selectedPlayerIndex].c_str());
                     
                     // Show some info about the selected player
