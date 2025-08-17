@@ -78,7 +78,7 @@ void GolfOverlay::DrawHUD() {
 
     // Watermark
     if (Configuration::bShowWatermark) {
-        const char* watermarkText = "GolfIt Cheat";
+        const char* watermarkText = "GolfIt Fentry";
         float textW = ImGui::CalcTextSize(watermarkText).x;
         ImGui::SetNextWindowPos({ (io.DisplaySize.x - textW) * 0.5f, 10.0f });
         ImGui::Begin("Watermark", nullptr,
@@ -134,7 +134,7 @@ void GolfOverlay::DrawHUD() {
      */
     static bool displayedFirstUseNotif, displayedCorruptConfigNotif = false;
     if (Configuration::bFirstUse && !displayedFirstUseNotif) {
-        ImGui::InsertNotification({ ImGuiToastType::Info, 8000, "Thank you for using our GolfIt Cheat. To get started, open the menu with the 'INSERT' key." });
+        ImGui::InsertNotification({ ImGuiToastType::Info, 8000, "Thank you for using our GolfIt Fentry. To get started, open the menu with the 'INSERT' key." });
         displayedFirstUseNotif = true;
     }
 
@@ -184,7 +184,7 @@ void GolfOverlay::DrawOverlay() {
     ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.98f);
 
-    const auto WindowTitle = std::string("GolfIt Cheat");
+    const auto WindowTitle = std::string("www.Fentry.org");
     GolfOverlay* Overlay = static_cast<GolfOverlay*>(OverlayBase::Instance);
 
     if (ImGui::Begin(WindowTitle.data(), &show, window_flags)) {
