@@ -1,11 +1,11 @@
 #include "ESP.h"
-#include "../Configuration.h"
-#include "../ActorCache.h"
-#include "../Utils.h"
-#include "../SDKExt.h"
-#include "../ImGuiExt.h"
-#include "../TfdOverlay.h"
-#include "../../RendererHook/OverlayBase.h"
+#include "Configuration.h"
+#include "ActorCache.h"
+#include "Utils.h"
+#include "SDKExt.h"
+#include "ImGuiExt.h"
+#include "GolfOverlay.h"
+#include <OverlayBase.h>
 #include <imgui_internal.h>
 #include <Windows.h>
 #include <algorithm>
@@ -13,7 +13,7 @@
 using namespace SDK;
 
 void ESP::DrawGuiFOVCircle() {
-    TfdOverlay* Overlay = static_cast<TfdOverlay*>(OverlayBase::Instance);
+    GolfOverlay* Overlay = static_cast<GolfOverlay*>(OverlayBase::Instance);
 
     APlayerController* PlayerController = GetAPC();
     if (!PlayerController || !PlayerController->K2_GetPawn())
@@ -275,7 +275,7 @@ void ESP::DrawGuiESP() {
     // Get the local golf ball specifically for comparison
     auto LocalGolfBall = GetGolfBallC();
 
-    TfdOverlay* Overlay = static_cast<TfdOverlay*>(OverlayBase::Instance);
+    GolfOverlay* Overlay = static_cast<GolfOverlay*>(OverlayBase::Instance);
     if (!Overlay)
         return;
 

@@ -2,12 +2,9 @@
 #include <thread>
 #include <iostream>
 
-#include "../GolfSDK/SDK.hpp"
-#include "TfdOverlay.h"
-#include "../console/console.hpp"
-
-//#define PRINT_DEBUG(a, ...) do {FILE *t = fopen("DEBUG_LOG.txt", "a"); fprintf(t, "%u " a, GetCurrentThreadId(), __VA_ARGS__); fclose(t); WSASetLastError(0);} while (0)
-
+#include <SDK.hpp>
+#include "GolfOverlay.h"
+#include "console.hpp"
 
 DWORD WINAPI MainThread(LPVOID lpReserved);
 
@@ -25,7 +22,7 @@ DWORD WINAPI MainThread(const LPVOID lpReserved) {
 
     Console::Alloc();
 
-    const auto Overlay = new TfdOverlay();
+    const auto Overlay = new GolfOverlay();
     OverlayBase::Instance = Overlay;
     Overlay->SetupOverlay();
 

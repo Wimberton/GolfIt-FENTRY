@@ -1,12 +1,12 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
-#include "../Configuration.h"
-#include "../Utils.h"
-#include "../SDKExt.h"
-#include "../TfdOverlay.h"
+#include "Configuration.h"
+#include "Utils.h"
+#include "SDKExt.h"
+#include "GolfOverlay.h"
 #include "PlayerFeatures.h"
-#include "../../console/console.hpp"
+#include "console.hpp"
 #include <chrono>
 #include <Windows.h>
 #include <imgui.h>
@@ -382,7 +382,7 @@ namespace PlayerFeatures {
         }
     }
 
-    void Func_UnifiedTeleport(TfdOverlay* Overlay) {
+    void Func_UnifiedTeleport(GolfOverlay* Overlay) {
         // Check if teleport feature is enabled and overlay is valid
         if (!Configuration::cfg_EnableTPTarget || !Overlay)
             return;

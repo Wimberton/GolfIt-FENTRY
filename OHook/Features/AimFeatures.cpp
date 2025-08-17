@@ -1,7 +1,7 @@
 #include "AimFeatures.h"
-#include "../ActorCache.h"
-#include "../Utils.h"
-#include "../../console/console.hpp"
+#include "ActorCache.h"
+#include "Utils.h"
+#include "console.hpp"
 #include <SDK/GolfIt_parameters.hpp>
 #include <chrono>
 #include <algorithm>
@@ -11,7 +11,7 @@
 using namespace SDK;
 
 namespace AimFeatures {
-    void Func_DoTargeting(TfdOverlay* Overlay, const SDK::AHUD* HUD)
+    void Func_DoTargeting(GolfOverlay* Overlay, const SDK::AHUD* HUD)
     {        
         if (!Overlay || !HUD || !HUD->Canvas)
             return;
@@ -160,7 +160,7 @@ namespace AimFeatures {
         }
     }
     
-    void Func_DoAimbot(TfdOverlay* Overlay, const SDK::AHUD* HUD) {
+    void Func_DoAimbot(GolfOverlay* Overlay, const SDK::AHUD* HUD) {
         if (!Overlay || !HUD || !HUD->Canvas)
             return;
 

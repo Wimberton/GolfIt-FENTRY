@@ -1,8 +1,8 @@
 #pragma once
-#include "../SDKExt.h"
-#include "../TfdOverlay.h"
-#include "../Configuration.h"
-#include "../../GolfSDK/SDK.hpp"
+#include "SDKExt.h"
+#include "GolfOverlay.h"
+#include "Configuration.h"
+#include <SDK.hpp>
 
 using namespace SDK;
 
@@ -12,7 +12,7 @@ namespace PlayerFeatures {
     void Func_DoMultiJump();
     void Func_UnlitMode();
     void Func_DoTeleportToGoal();
-    void Func_UnifiedTeleport(TfdOverlay* Overlay);
+    void Func_UnifiedTeleport(GolfOverlay* Overlay);
     
     // Player Control Functions
     void TeleportPlayerToGoal(AGolfBall_C* targetPlayer);
