@@ -4,8 +4,8 @@
 
 ## Quick Links
 
-- ⚡ [Download Latest Release](https://github.com/Wimberton/GolfIt-FENTRY/releases/latest)
-- 🎮 [Join Discord Server](https://discord.gg/fentry)
+- [Download Latest Release](https://github.com/Wimberton/GolfIt-FENTRY/releases/latest)
+- [Join Discord Server](https://discord.gg/fentry)
 
 ![Golf It Cheat Menu](https://i.gyazo.com/91c0eb1f829d1f47eec82d43cdfffa92.jpg)
 ![Golf It ESP Screenshot](https://i.gyazo.com/d0df1464597f68733bd6475f3089b371.jpg)
@@ -25,7 +25,7 @@
 
 ## Core Features
 
-### 🎯 Visual ESP Features
+### Visual ESP Features
 
 - **Golf Ball ESP:** See other players' golf balls with boxes, names, and distance
 - **Goal Flag ESP:** Locate goal holes with ESP boxes and markers
@@ -34,7 +34,7 @@
 - **Debug ESP:** Show class names of all objects for development
 - **Unlit Mode:** Remove lighting effects for better visibility through walls
 
-### 🚀 Movement & Teleportation
+### Movement & Teleportation
 
 - **NoClip:** Fly through walls and objects with your golf ball
 - **Speedhack:** Time dilation for super-fast or slow-motion gameplay
@@ -43,7 +43,7 @@
 - **Chaos Mode:** Teleport ALL players to the goal simultaneously! 😂
 - **Unified Teleport:** Teleport to targeted objects or forward in camera direction
 
-### 🎮 Player Control System
+### Player Control System
 
 - **Player List:** View all lobby players with real-time selection
 - **Teleport Others:** Move any player to goal, to you, or teleport to them
@@ -52,7 +52,7 @@
 - **Speed Control:** Make others super fast or slow motion
 - **Reset Players:** Return all modifications to normal
 
-### 🎯 Targeting & Aimbot
+### Targeting & Aimbot
 
 - **Smart Targeting:** Automatically target golf balls and goal flags
 - **Aimbot with Smoothing:** Smooth camera movement to targets
@@ -138,18 +138,6 @@
 - **Actor Teleport Offset:** Avoid clipping when teleporting
 - **Debug Options:** Development tools and logging
 
-## Roadmap
-
-- [x] Core ESP system for golf balls and goals
-- [x] Player movement modifications (NoClip, Speed, Multi Jump)
-- [x] Advanced player control system
-- [x] Teleportation features with chaos mode
-- [x] Targeting and aimbot system
-- [x] Configuration save/load system
-- [ ] Additional golf ball physics modifications
-- [ ] Tournament mode features
-- [ ] Custom game mode support
-
 ## Contributing
 
 Want to contribute to GolfIt FENTRY? We welcome:
@@ -161,7 +149,7 @@ Want to contribute to GolfIt FENTRY? We welcome:
 
 ## Disclaimer
 
-This cheat is for educational purposes and private lobbies only. Use responsibly and respect other players' gaming experience. We are not responsible for any consequences of using this software.
+This is for educational purposes and private lobbies only. Use responsibly and respect other players' gaming experience. We are not responsible for any consequences of using this software.
 
 ---
 
